@@ -44,7 +44,7 @@ def _get_point_type(filename, description):
     return point_type
 
 
-def nemo_preprocess(ds, domcfg, point_type=None):
+def nemo_preprocess(ds, domcfg, point_type=None, suppress_t_bounds=False):
     """
     Preprocess function for the nemo files.
 
@@ -95,10 +95,14 @@ def nemo_preprocess(ds, domcfg, point_type=None):
     )
     # rename time and space
     # get time_counter bounds
-    time_b = ds["time_counter"].attrs["bounds"]
-    to_rename.update({"time_counter": "t", time_b: "t_bounds"})
-    ds = ds.rename(to_rename)
-    ds["t"].attrs["bounds"] = "t_bounds"
+    if suppress_t_bounds:
+        to_rename.update({"time_counter": "t"})
+        ds = ds.rename(to_rename)
+    else:
+        time_b = ds["time_counter"].attrs["bounds"]
+        to_rename.update({"time_counter": "t", time_b: "t_bounds"})
+        ds = ds.rename(to_rename)
+        ds["t"].attrs["bounds"] = "t_bounds"
     # setting z_c/z_f/x_c/etc to be the same as in domcfg
     ds = ds.assign_coords({i: domcfg[i] for i in points})
     return ds
@@ -117,7 +121,7 @@ def _check_position(ds, position, parallel=False):
         return get_point_type(filename="", description=ds.attrs.get("description", ""))
 
 
-def process_nemo(positions, domcfg, parallel=False):
+def process_nemo(positions, domcfg, parallel=False, suppress_t_bounds=False):
     """
     Process datasets from NEMO outputs and set coordinates and attributes.
 
@@ -156,7 +160,8 @@ def process_nemo(positions, domcfg, parallel=False):
             list_ds.append((ds, X))
     """
     datasets = [
-        preprocess(ds=ds, domcfg=domcfg, point_type=_check_position(ds, X, parallel))
+        preprocess(ds=ds, domcfg=domcfg, suppress_t_bounds=suppress_t_bounds, 
+        point_type=_check_position(ds, X, parallel))
         for (ds, X) in positions
     ]
     if parallel:
